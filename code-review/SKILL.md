@@ -85,6 +85,7 @@ Before diving into code, understand:
 5. **PR Scope** -- Is the PR focused on a single concern? Refactoring should not be mixed with functional changes. Config changes should be separate from logic changes for easy rollback.
 
 ### Phase 3: Line-by-Line Review
+Review the code **as written** — is it correct, safe, and well-structured?
 For each file, check:
 - **Logic & Correctness** -- Edge cases, off-by-one, null checks, race conditions, use of protocol features.
 - **Naming Precision** -- Names must be self-documenting and domain-precise. See [nearcore Patterns](nearcore-patterns.md) for conventions.
@@ -93,28 +94,16 @@ For each file, check:
   - [ ] Boolean config fields use verb prefixes (`enable_early_prepare_transactions` not `early_prepare_transactions`).
   - [ ] Domain terminology is precise ("final" means "finalized by consensus", not "last").
   - [ ] Stale names updated after refactoring -- method names must reflect current behavior, not historical behavior (PR #13359).
-- **Error Handling** -- nearcore uses a tiered strategy:
-  - [ ] `debug_assert` + error return for "should never happen" (crashes canaries, production survives).
-  - [ ] `tracing::error!` + graceful degradation for bugs where crashing is worse than continuing.
-  - [ ] `panic!` only for truly unrecoverable conditions or test code. Never in protocol-critical paths.
-  - [ ] `Result<(), Error>` over `bool` for fallible operations (compiler warns on ignored Results).
-  - [ ] No `as T` casts on numeric types -- use `u128::from()`, `try_into().unwrap()`, or `.into()`.
-  - [ ] Overflow handling intentional: `checked` for protocol paths, `saturating` only where explicitly safe.
-  - [ ] Runtime error classification correct: `ActionErrorKind` for user-facing failures, `RuntimeError` for internal errors (PR #12886).
-- **Determinism** -- See [Security Checklist](security-checklist.md).
-  - [ ] No `HashMap` in consensus-adjacent or state-processing code (use `BTreeMap` or `Vec`).
-  - [ ] Transaction/receipt ordering unchanged or explicitly gated behind protocol version.
-- **Serialization Safety** -- See [Security Checklist](security-checklist.md).
-  - [ ] Borsh enum variants added at the END only.
-  - [ ] Old versioned structs (V1, V2) not modified.
-  - [ ] New serde config fields have `#[serde(default)]`.
-- [ ] Weak test assertions (e.g., does not check exact balance amount, checks `is_err()` without asserting error type/variant, checks `!x.is_empty()` instead of exact length or full set verification where appropriate).
+- **Error Handling** -- Apply the error handling checklists in [Security Checklist](security-checklist.md) and [nearcore Patterns](nearcore-patterns.md). Key concern: nearcore uses a tiered strategy (`debug_assert` + error return for canary detection, `tracing::error!` + degradation, `panic!` only for unrecoverable).
+- **Determinism** -- Apply the consensus & determinism checklist in [Security Checklist](security-checklist.md).
+- **Serialization Safety** -- Apply the serialization checklists in [Security Checklist](security-checklist.md) and [nearcore Patterns](nearcore-patterns.md).
 - **Security** -- For protocol-critical code, apply the full [Security Checklist](security-checklist.md).
 - **Performance** -- Unnecessary loops, memory leaks, tracing overhead in hot paths.
 - **Maintainability** -- Clear names, single responsibility, comments.
 - **Partially mutated state and side effects on early return** -- If there is a return statement before the end of the function, check if there are any mutations to state that could cause confusion or bugs. Especially if the function returns an error and the caller could assume no changes. If so, suggest refactoring to avoid this pattern.
 
-### Phase 4: Minimal Diff Review
+### Phase 4: Diff Hygiene Review
+Review the **delta** — is the diff clean, minimal, and free of accidental side effects? This complements Phase 3 by focusing on what changed rather than the code's absolute quality.
 For each file and diff chunk, check:
 - [ ] The change compared to the prior version is minimal and necessary. If not, suggest adherence to the original.
 - [ ] The diff does not remove original comments, documentation, or tests without good reason. If it does, suggest restoring them.
@@ -130,46 +119,20 @@ For each file and diff chunk, check:
 - [ ] No previously-removed clones reintroduced (PR #12983).
 
 ### Phase 5: Testing Coherence Review
-- [ ] Test-loop (`TestLoopBuilder`, `TestLoopNode`, `TestLoopEnv`) is used for new end-to-end tests. Integration tests (`integration-tests/`, `TestEnv`) are deprecated.
-- [ ] Test setup is minimal: fewest accounts, shards, validators needed. Use existing helpers: `create_account_ids`, `create_validators_spec`, `epoch_config_store_from_genesis()`.
-- [ ] Set configuration in genesis, then use `TestEpochConfigBuilder::build_store_from_genesis`. Do not override epoch config directly.
-- [ ] Use RPC nodes for querying state (not producers tracking all shards).
-- [ ] One test function per test case for easier debugging (PR #14377).
-- [ ] Assertions are strong and descriptive:
-  - [ ] `assert_eq!` over `assert!(x.is_empty())` for better failure messages.
-  - [ ] `assert_matches!` for pattern-matching assertions.
-  - [ ] Assert specific error types, not just `is_err()`.
-  - [ ] Assert preconditions hold before testing postconditions.
-  - [ ] Use expressions (`txs.len()`) not hardcoded magic numbers in assertions.
-- [ ] Tests are deterministic: hardcoded seeds, not `thread_rng()` (PR #14883).
-- [ ] Semantic stop conditions preferred over fixed block counts (PR #14474).
-- [ ] Block-count progression preferred over time-based progression (PR #13886).
-- [ ] Tests use same APIs as production code, not internal trie access.
-- [ ] Use `ProtocolFeature` constants, not hardcoded version numbers (PR #13881).
-- [ ] Bug fixes include regression tests that fail without the fix (red-green testing).
-- [ ] Protocol upgrade tests use `sequential` schedule (PR #13392).
-- [ ] Document magic numbers with derivation math.
-- [ ] Test infrastructure not deleted just because temporarily unused -- use `#[allow(unused)]` (PR #13776).
+Apply the testing checklist in [nearcore Patterns](nearcore-patterns.md). Key review questions:
+- Is the test framework correct? (test-loop for new e2e tests, not deprecated `integration-tests`/`TestEnv`)
+- Is the test setup minimal and configuration set through genesis?
+- Are assertions strong, specific, and descriptive? (`assert_eq!` over `assert!`, specific error types over `is_err()`)
+- Are tests deterministic? (hardcoded seeds, semantic stop conditions, block-count over time-based progression)
+- Do bug fixes include regression tests that fail without the fix?
 
 ### Phase 6: Code Consistency Review
-- Check if the code is consistent with the surrounding code and the overall codebase. Flag any inconsistencies and suggest making the code consistent.
-- [ ] `BTreeMap` over `HashMap` in consensus-adjacent code (determinism requirement).
-- [ ] Early returns with `let Some(x) = ... else { continue/return };` over nested `if let` (PR #14997, PR #13527).
-- [ ] Structured tracing: explicit `target:`, key-value fields (`?var`, `%var`), not format string interpolation. Fully qualified `tracing::debug!` rather than importing the macro.
-- [ ] Log messages lowercase (but preserve type names/acronyms like `ChunkStateWitness`, `S3`).
-- [ ] Present participle for ongoing actions: "processing block" not "process block".
-- [ ] `#[instrument]` over manual `debug_span!` (PR #14105).
-- [ ] Enums over booleans for parameters where meaning is ambiguous at call site (PR #13577).
-- [ ] Exhaustive match arms on enums (no `_ =>` wildcards on growing enums).
-- [ ] `expect("reason")` over bare `unwrap()` to document safety assumptions.
-- [ ] Named constants for magic numbers with type annotations.
-- [ ] Named variables for boolean arguments at call sites.
-- [ ] Domain type aliases used (`BlockHeight`, `ShardId`, `Gas`, `Balance`).
-- [ ] `parking_lot::Mutex`/`RwLock` over `std::sync` equivalents.
-- [ ] `is_some_and()`, `is_none_or()` over `map_or()` chains.
-- [ ] `itertools` usage where appropriate: `exactly_one()`, `collect_vec()`.
-- [ ] Minimize visibility: `pub(crate)` when possible, no `pub` unless needed externally.
-- [ ] Import from canonical crate, not re-exports from unrelated crates.
+Check if the code is consistent with the surrounding code and the overall codebase. Flag any inconsistencies and suggest making the code consistent.
+Apply the Rust idioms and tracing conventions in [nearcore Patterns](nearcore-patterns.md). Key areas:
+- Control flow: early returns, flat structure, exhaustive match arms.
+- Type safety: enums over booleans, domain type aliases, `expect()` over `unwrap()`.
+- Tracing: explicit `target:`, structured key-value fields, `#[instrument]` over manual spans, lowercase messages.
+- Visibility: `pub(crate)` by default, import from canonical crates.
 
 ### Phase 7: Comment Consistency Review
 - Check if the code comments are consistent with the code. If there are any inconsistencies, suggest updating the comments to match the code or vice versa. This helps ensure that comments remain accurate and useful for future readers.
@@ -196,46 +159,12 @@ For each file and diff chunk, check:
 
 ### Technique 1: The nearcore Checklist
 
-**Protocol Feature Gating:**
-- [ ] New protocol behavior gated behind `ProtocolFeature::X.enabled(protocol_version)` at runtime?
-- [ ] Compile-time `cfg!(feature = ...)` used ONLY for non-consensus code (GC, tooling -- exception is SPICE, but we are transitioning away from it except in tests)?
-- [ ] Blocks/messages using unreleased features rejected when feature is not enabled?
-- [ ] `latest_protocol_version` (vote) not confused with current epoch protocol version?
-- [ ] Old code path preserved intact alongside new code for protocol changes?
+For protocol-critical PRs, apply the full checklists in the reference guides:
 
-**Serialization & Backward Compatibility:**
-- [ ] Borsh enum variants added at END (before unstable/nightly variants)?
-- [ ] Old versioned structs (V1, V2) not modified?
-- [ ] Deprecated enum variants use `_UnusedXxx` naming?
-- [ ] Protocol-visible structs derive `ProtocolSchema`?
-- [ ] Signed structs use `SignatureDifferentiator` and `#[borsh(init=init)]`?
-- [ ] New serde config fields have `#[serde(default)]`?
+- [Security Checklist](security-checklist.md) -- protocol safety, consensus & determinism, serialization, validation, state mutation, error handling, gas & overflow safety.
+- [nearcore Patterns](nearcore-patterns.md) -- protocol versioning, Borsh rules, resharding, epoch management, gas accounting, storage layer, runtime errors, actor patterns, tracing, configuration, testing.
 
-**Storage & GC:**
-- [ ] New header/chunk fields minimize storage overhead?
-- [ ] DB migrations handle archival vs non-archival, hot vs cold storage?
-- [ ] New code does not depend on data that may have been garbage collected?
-- [ ] Read-modify-write patterns in DB are thread-safe?
-
-**Fork Safety & Edge Cases:**
-- [ ] Code handles blockchain forks correctly (non-final blocks may be abandoned)?
-- [ ] Behavior correct at resharding_block +/- 1?
-- [ ] Correct epoch's shard layout used (current vs previous vs next)?
-- [ ] `last_final_block` vs `head` vs `prev_hash` used correctly?
-- [ ] Missing block/chunk cases handled (`height_created` vs `height_included`)?
-- [ ] All execution paths (chunk production, state witness validation, state sync, replay) behave consistently?
-
-**Gas & Compute:**
-- [ ] Gas values use `Gas` type, not raw `u64`?
-- [ ] Overflow handling intentional: `checked` for protocol, `saturating` only where safe?
-- [ ] No `as u64`/`as u128` casts on gas values?
-- [ ] Placeholder costs for unstabilized features set prohibitively high?
-
-**Deployment Safety:**
-- [ ] Activation timing: when does the feature take effect relative to protocol upgrade epoch?
-- [ ] Canary safety: could errors crash canary nodes or leak to production?
-- [ ] GC compatibility: does new code depend on data that may have been garbage collected?
-- [ ] Indexer impact: breaking changes documented in main CHANGELOG?
+Focus on the sections relevant to the PR's scope. Not every section applies to every PR.
 
 ### Technique 2: The Question Approach
 
