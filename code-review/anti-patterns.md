@@ -128,7 +128,6 @@ Default values changed during refactoring without explicit documentation.
 Debug statements, markers, and print calls left in production code.
 
 - PR #14963: `//println!` commented-out debug print left in code.
-- PR #14586: `hierwasik` debug marker string committed to production code.
 - PR #14232: `if key.1 == ShardId::new(3) && key.2 == 0` -- hardcoded debug log with specific shard ID left in.
 
 ### Commented-Out Code

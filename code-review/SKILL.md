@@ -108,6 +108,7 @@ For each file, check:
   - [ ] Borsh enum variants added at the END only.
   - [ ] Old versioned structs (V1, V2) not modified.
   - [ ] New serde config fields have `#[serde(default)]`.
+- [ ] Weak test assertions (e.g., does not check exact balance amount, checks `is_err()` without asserting error type/variant, checks `!x.is_empty()` instead of exact length or full set verification where appropriate).
 - **Security** -- For protocol-critical code, apply the full [Security Checklist](security-checklist.md).
 - **Performance** -- Unnecessary loops, memory leaks, tracing overhead in hot paths.
 - **Maintainability** -- Clear names, single responsibility, comments.
@@ -117,7 +118,7 @@ For each file, check:
 For each file and diff chunk, check:
 - [ ] The change compared to the prior version is minimal and necessary. If not, suggest adherence to the original.
 - [ ] The diff does not remove original comments, documentation, or tests without good reason. If it does, suggest restoring them.
-- [ ] No leftover debug code: `dbg!`, `println!`, `//println!`, hardcoded debug shard IDs, debug markers (PR #14586: `hierwasik`), commented-out imports (PR #14782).
+- [ ] No leftover debug code: `dbg!`, `println!`, `//println!`, hardcoded debug shard IDs, debug markers, commented-out imports (PR #14782).
 - [ ] No configuration default value changes buried in refactors (PR #13575). Config changes belong in separate PRs.
 - [ ] No removed validation logic during refactoring. Validation removal must be explicit and justified (PR #13892, PR #14142).
 - [ ] Semantic preservation: refactoring PRs must not change behavior. Watch for:
@@ -197,7 +198,7 @@ For each file and diff chunk, check:
 
 **Protocol Feature Gating:**
 - [ ] New protocol behavior gated behind `ProtocolFeature::X.enabled(protocol_version)` at runtime?
-- [ ] Compile-time `cfg!(feature = ...)` used ONLY for non-consensus code (GC, tooling)?
+- [ ] Compile-time `cfg!(feature = ...)` used ONLY for non-consensus code (GC, tooling -- exception is SPICE, but we are transitioning away from it except in tests)?
 - [ ] Blocks/messages using unreleased features rejected when feature is not enabled?
 - [ ] `latest_protocol_version` (vote) not confused with current epoch protocol version?
 - [ ] Old code path preserved intact alongside new code for protocol changes?
