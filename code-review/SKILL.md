@@ -35,28 +35,12 @@ Bad: "This is wrong."
 Good: "This could cause a race condition when multiple users
        access simultaneously. Consider using a mutex here."
 
-Bad: "Why didn't you use X pattern?"
-Good: "Have you considered the Repository pattern? It would
-       make this easier to test. Here's an example: [link]"
-
 Bad: "Rename this variable."
 Good: "[nit] Consider `userCount` instead of `uc` for
        clarity. Not blocking if you prefer to keep it."
 ```
 
-### 3. Review Scope
-
-**What to Review:**
-- Logic correctness and edge cases
-- Security vulnerabilities (see [Security Checklist](security-checklist.md))
-- Performance implications
-- Test coverage and quality
-- Error handling
-- Documentation and comments
-- API design and naming
-- Architectural fit
-
-**Reference Guides:**
+### 3. Reference Guides
 - [Security Checklist](security-checklist.md) -- critical security review items
 - [nearcore Patterns](nearcore-patterns.md) -- domain knowledge reference
 - [Common Anti-patterns](anti-patterns.md) -- mistakes to watch for
@@ -66,8 +50,7 @@ Good: "[nit] Consider `userCount` instead of `uc` for
 ## Review Process
 
 ### Phase 1: Context Gathering
-Before diving into code, understand:
-1. Ensure you understand which code is being reviewed (diff with master, specific PR, latest commit, staged changes, etc.) If there is any ambiguity here ASK AND ABORT.
+1. Identify exactly which code is being reviewed (diff, PR, commit, staged changes). If ambiguous, **ASK AND ABORT**.
 2. Understand related documentation, requirements, and design decisions.
 3. Note any relevant architectural decisions.
 4. Determine if this PR touches protocol-critical code (consensus, serialization, state transitions, gas accounting). If so, apply the [Security Checklist](security-checklist.md).
@@ -135,8 +118,7 @@ Apply the Rust idioms and tracing conventions in [nearcore Patterns](nearcore-pa
 - Visibility: `pub(crate)` by default, import from canonical crates.
 
 ### Phase 7: Comment Consistency Review
-- Check if the code comments are consistent with the code. If there are any inconsistencies, suggest updating the comments to match the code or vice versa. This helps ensure that comments remain accurate and useful for future readers.
-- Check surrounding code, top of functions, file headers, for comments that may be affected by the change. If there are any changes that should be made to these comments, suggest them.
+Verify comments match the code. Check surrounding code, function headers, and file headers for comments affected by the change.
 - [ ] Stale comments updated after refactoring -- surrounding comments must be updated when code changes (PR #14353, PR #13926).
 - [ ] TODOs tagged with feature/team identifier: `TODO(resharding)`, `TODO(gas-keys)`, `TODO(#14005)` (PR #14405).
 - [ ] Non-obvious constants and configuration values have explanatory comments (PR #14168, PR #13532).
@@ -157,60 +139,29 @@ Apply the Rust idioms and tracing conventions in [nearcore Patterns](nearcore-pa
 
 ## Review Techniques
 
-### Technique 1: The nearcore Checklist
+### Ask Questions, Don't Command
 
-For protocol-critical PRs, apply the full checklists in the reference guides:
+Use questions and collaborative language instead of directives:
+- "What happens if `items` is empty?" not "This will fail if the list is empty."
+- "Would it make sense to extract this?" not "Extract this into a function."
+- Prefix non-blocking feedback with `[nit]`.
 
-- [Security Checklist](security-checklist.md) -- protocol safety, consensus & determinism, serialization, validation, state mutation, error handling, gas & overflow safety.
-- [nearcore Patterns](nearcore-patterns.md) -- protocol versioning, Borsh rules, resharding, epoch management, gas accounting, storage layer, runtime errors, actor patterns, tracing, configuration, testing.
-
-Focus on the sections relevant to the PR's scope. Not every section applies to every PR.
-
-### Technique 2: The Question Approach
-
-Instead of stating problems, ask questions:
-
-```markdown
-Bad: "This will fail if the list is empty."
-Good: "What happens if `items` is an empty array?"
-
-Bad: "You need error handling here."
-Good: "How should this behave if the API call fails?"
-```
-
-### Technique 3: Suggest, Don't Command
-
-Use collaborative language:
-
-```markdown
-Bad: "You must change this to use async/await"
-Good: "Suggestion: async/await might make this more readable. What do you think?"
-
-Bad: "Extract this into a function"
-Good: "This logic appears in 3 places. Would it make sense to extract it?"
-```
-
-### Technique 4: Differentiate Severity
-
-Use labels to indicate priority:
+### Differentiate Severity
 
 - 🔴 `[blocking]` - Must fix before merge
 - 🟡 `[important]` - Should fix, discuss if disagree
 - 🟢 `[nit]` - Nice to have, not blocking
 - 💡 `[suggestion]` - Alternative approach to consider
 
-### Technique 5: Concrete Counter-Examples
+### Concrete Counter-Examples
 
-When reviewing algorithms handling sequences (blocks, epochs, heights), construct concrete examples with edge cases:
-
-- "Consider block sequence: B1, B2, B3(1), X4, B5(1), X6, B7(1), B8(1) where X=missing. With estimated epoch start at 9, is_next_epoch_after_n_blocks(B8, 2) would incorrectly return false."
-- "What happens during protocol upgrade at epoch 150? Will the new shard layout become effective in 150 or 152?"
-- "What if the node is an RPC node and not a validator?"
+For algorithms handling sequences (blocks, epochs, heights), construct concrete edge-case scenarios:
+- "What happens during protocol upgrade at epoch 150?"
 - "What if the block producer missed this height?"
 - "Does this work for nodes that don't track this shard?"
 
-Use "sanity check:" prefix to verify your understanding and invite the author to confirm or correct your mental model.
+Use "sanity check:" prefix to verify understanding and invite the author to confirm.
 
-### Technique 6: Style Guide
+### Style Guide
 
-- Read [style guide](<project-root>/docs/practices/style.md) if available before reviewing, but adherence to this is somewhat loose. Check nearby code for examples of style. If there is a clear style in the codebase, follow it. If not, use your best judgment. Do not block on style issues that don't cause confusion or bugs.
+Read [style guide](<project-root>/docs/practices/style.md) if available. Check nearby code for patterns. Do not block on style issues that don't cause confusion or bugs.

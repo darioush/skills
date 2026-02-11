@@ -9,14 +9,14 @@ Each anti-pattern includes a brief description and real examples from PRs. These
 ### Misleading Names Causing Bugs
 Names that do not reflect actual behavior lead to incorrect usage at call sites.
 
-- PR #14906: `get_next_next_epoch_protocol_version` only called `get_next_epoch_id` once instead of twice. The name promised "next_next" but the implementation delivered "next".
-- PR #13359: Method names reflecting historical behavior rather than current behavior after refactoring. A reviewer flagged the name as a blocking issue because it would mislead future callers.
+- PR #14906: `get_next_next_epoch_protocol_version` only called `get_next_epoch_id` once instead of twice.
+- PR #13359: Method names reflecting historical behavior rather than current behavior after refactoring.
 
 ### Stale Names After Refactoring
 When behavior changes but names stay the same, the mismatch creates latent bugs.
 
-- PR #12734: Function name no longer matched what it did after a refactor. The stale name was flagged as blocking.
-- PR #14353: Comments and variable names not updated to match new code semantics after refactoring.
+- PR #12734: Function name no longer matched what it did after a refactor.
+- PR #14353: Comments and variable names not updated to match new code semantics.
 
 ### Ambiguous Boolean Parameters
 Bare `true`/`false` at call sites convey no meaning.
@@ -31,8 +31,8 @@ Bare `true`/`false` at call sites convey no meaning.
 ### Breaking Borsh Enum Ordering
 Adding a variant in the wrong position breaks all deserialization across the network.
 
-- PR #12737: A variant inserted in the middle of a Borsh enum would have broken all serialization. Caught in review.
-- PR #13440: New Borsh-serialized enum variant not appended at the end. Reviewer flagged as a protocol-breaking change.
+- PR #12737: Variant inserted in the middle of a Borsh enum.
+- PR #13440: New Borsh-serialized enum variant not appended at the end.
 
 ### Removing Fields from Persisted Structs
 Breaks deserialization of existing data on disk or in cloud storage.
@@ -52,8 +52,7 @@ Features accidentally stabilized or protocol behavior changed during cleanup/ref
 ### HashMap in Consensus-Adjacent Code
 HashMap iteration order is non-deterministic. Using it in consensus or state-processing code risks validators diverging.
 
-- PR #13395: HashMap used in code near state processing. Reviewer required BTreeMap for deterministic ordering.
-- PR #13369: HashMap in consensus-adjacent code flagged. Replaced with BTreeMap.
+- PR #13395, PR #13369: HashMap in consensus-adjacent code replaced with BTreeMap.
 
 ### Fork-Unsafe Code
 Code that assumes blocks are final or does not handle fork switching.
@@ -123,24 +122,16 @@ Default values changed during refactoring without explicit documentation.
 ---
 
 ## Debug & Cleanup
-
-### Leftover Debug Code
-Debug statements, markers, and print calls left in production code.
+Debug code, commented-out code, and print statements left in production.
 
 - PR #14963: `//println!` commented-out debug print left in code.
 - PR #14232: `if key.1 == ShardId::new(3) && key.2 == 0` -- hardcoded debug log with specific shard ID left in.
 
-### Commented-Out Code
-Code commented out instead of deleted. Creates confusion about whether it is intentional.
-
-- PR #13708: Commented-out code left behind during refactoring.
-- PR #14782: Commented-out imports left in the file.
 
 ### Debug Artifacts (`dbg!`, `print`)
 `dbg!` macros and `println!` statements left in production code.
 
 - PR #12627: `dbg!` macro shipped in production code.
-- PR #12969: Print statements left in production paths.
 
 ---
 
@@ -149,7 +140,7 @@ Code commented out instead of deleted. Creates confusion about whether it is int
 ### Wrong Variable After Paste
 Copy-pasting code and failing to update all variable references.
 
-- PR #14475: `block` used instead of `cur_block` for fetching chunks after a copy-paste. This was a real bug causing incorrect indexer data.
+- PR #14475: `block` used instead of `cur_block` after a copy-paste, causing incorrect indexer data.
 
 ### Copy-Pasted Span Names / Metric Descriptions
 Tracing span names or metric descriptions copied from another function without updating.
@@ -181,13 +172,10 @@ Tests that do not assert meaningful invariants.
 ### Non-Deterministic Seeds
 Using `thread_rng()` instead of deterministic RNG with hardcoded seed. Failures become unreproducible.
 
-- PR #14883: Test used `thread_rng()`. When it failed, the failure could not be reproduced because the seed was random.
-- PR #14545: Same pattern. Reviewer required hardcoded seed for reproducibility.
+- PR #14883, PR #14545: Tests used `thread_rng()`, making failures unreproducible.
 
 ### Deprecated Integration-Test Usage
-Using the deprecated `integration-tests` crate and `TestEnv` instead of the test-loop framework.
-
-- All 20 batches of review data confirm that integration tests are deprecated. New end-to-end tests must use `TestLoopBuilder`, `TestLoopNode`, `TestLoopEnv`.
+New end-to-end tests must use `TestLoopBuilder`/`TestLoopNode`/`TestLoopEnv`, not the deprecated `integration-tests` crate and `TestEnv`.
 
 ### Testing Only Happy Path
 Tests that exercise only the success case without testing error conditions or edge cases.
@@ -213,7 +201,7 @@ Values hardcoded in logic that should be configuration parameters.
 ### Config Changes Buried in Refactors
 Default value changes or new configuration fields hidden in larger refactoring PRs.
 
-- PR #13575: Configuration default values changed inside a refactoring PR without explicit callout in the PR description.
+- PR #13575: Config default values changed inside a refactoring PR without callout.
 - PR #13488: Config changes bundled with logic changes, making rollback difficult.
 
 ### Non-Functional Defaults
