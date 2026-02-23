@@ -25,9 +25,6 @@ disable-model-invocation: true
 
 **Good Feedback is:**
 - Specific and actionable
-- Educational, not judgmental
-- Focused on the code, not the person
-- Balanced (praise good work too)
 - Prioritized (critical vs nice-to-have)
 
 ```markdown
